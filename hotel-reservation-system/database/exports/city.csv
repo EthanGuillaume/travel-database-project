@@ -1,0 +1,45 @@
+city_id,city_name,country,region,description,avg_hotel_price_low,avg_hotel_price_high
+1,Amsterdam,Netherlands,Western Europe,Canal-ringed capital known for narrow houses and world-class museums.,100.00,250.00
+2,Andorra la Vella,Andorra,Southern Europe,High-altitude capital nestled in the Pyrenees mountains.,60.00,140.00
+3,Athens,Greece,Southern Europe,"Ancient city, birthplace of democracy and home of the Acropolis.",70.00,180.00
+4,Belgrade,Serbia,Southeastern Europe,Vibrant city at the confluence of the Sava and Danube rivers.,45.00,120.00
+5,Berlin,Germany,Central Europe,"Dynamic capital renowned for history, culture, and nightlife.",80.00,200.00
+6,Bern,Switzerland,Western Europe,Medieval old town capital beside the River Aare.,120.00,300.00
+7,Bratislava,Slovakia,Central Europe,Compact capital on the Danube with a well-preserved old town.,50.00,130.00
+8,Brussels,Belgium,Western Europe,"Heart of Europe, home to EU institutions and Art Nouveau architecture.",90.00,220.00
+9,Bucharest,Romania,Eastern Europe,City of contrasts blending Belle Epoque elegance with communist-era boulevards.,40.00,110.00
+10,Budapest,Hungary,Central Europe,"Capital split by the Danube, famed for thermal baths and grand architecture.",50.00,140.00
+11,Chisinau,Moldova,Eastern Europe,"Green, leafy capital with Soviet-era architecture and wine culture.",25.00,70.00
+12,Copenhagen,Denmark,Northern Europe,"Sustainable, design-forward capital with colorful Nyhavn harbour.",130.00,320.00
+13,Dublin,Ireland,Northern Europe,"Lively capital on the River Liffey, famous for pubs and Georgian squares.",100.00,260.00
+14,Helsinki,Finland,Northern Europe,"Compact coastal capital known for design, saunas, and sea fortresses.",90.00,230.00
+15,Kyiv,Ukraine,Eastern Europe,"Ancient city on the Dnipro River, rich in Orthodox churches and history.",30.00,90.00
+16,Lisbon,Portugal,Southern Europe,"Hilly coastal capital with pastel buildings, trams, and Atlantic cuisine.",70.00,180.00
+17,Ljubljana,Slovenia,Central Europe,Charming riverside capital with a pedestrian old town and hilltop castle.,60.00,150.00
+18,London,United Kingdom,Western Europe,"Iconic global city on the Thames, world leader in culture and finance.",150.00,400.00
+19,Luxembourg City,Luxembourg,Western Europe,Dramatic fortified capital straddling deep gorges.,130.00,280.00
+20,Madrid,Spain,Southern Europe,"Vibrant capital at the heart of the Iberian Peninsula, home to the Prado.",80.00,210.00
+21,Minsk,Belarus,Eastern Europe,Stalinist-architecture capital largely rebuilt after World War II.,25.00,70.00
+22,Monaco,Monaco,Southern Europe,Glamorous microstate on the French Riviera famed for casinos and F1.,250.00,600.00
+23,Nicosia,Cyprus,Southern Europe,"Last divided capital city in the world, rich in Byzantine heritage.",55.00,140.00
+24,Oslo,Norway,Northern Europe,"Fjord-side capital surrounded by forests, known for Vikings and Munch.",140.00,340.00
+25,Paris,France,Western Europe,"City of Light renowned for the Eiffel Tower, haute cuisine, and fashion.",130.00,380.00
+26,Podgorica,Montenegro,Southeastern Europe,Modern capital close to Lake Skadar and the Adriatic coast.,35.00,95.00
+27,Prague,Czech Republic,Central Europe,"Fairy-tale city on the Vltava River, famed for its medieval Old Town.",60.00,160.00
+28,Reykjavik,Iceland,Northern Europe,"World's northernmost capital, gateway to Northern Lights and geysers.",120.00,290.00
+29,Riga,Latvia,Northern Europe,Art Nouveau gem on the Baltic Sea with a UNESCO-listed old town.,50.00,130.00
+30,Rome,Italy,Southern Europe,"Eternal City layered with millennia of history, art, and gastronomy.",100.00,280.00
+31,San Marino,San Marino,Southern Europe,Historic hilltop microstate overlooking the Adriatic.,70.00,160.00
+32,Sarajevo,Bosnia & Herzegovina,Southeastern Europe,Multicultural mountain capital where East meets West.,35.00,100.00
+33,Skopje,North Macedonia,Southeastern Europe,Capital undergoing bold urban transformation along the Vardar River.,30.00,85.00
+34,Sofia,Bulgaria,Southeastern Europe,"One of Europe's oldest capitals, ringed by the Vitosha mountain.",35.00,100.00
+35,Stockholm,Sweden,Northern Europe,Elegant capital spread across 14 islands where Lake Malaren meets the sea.,120.00,300.00
+36,Tallinn,Estonia,Northern Europe,"Best-preserved medieval old town on the Baltic, a UNESCO World Heritage site.",55.00,145.00
+37,Tirana,Albania,Southeastern Europe,"Colourful, rapidly modernising capital in the shadow of Mount Dajti.",25.00,75.00
+38,Vaduz,Liechtenstein,Central Europe,Tiny Rhine-valley capital dominated by a medieval hilltop castle.,100.00,220.00
+39,Valletta,Malta,Southern Europe,"Smallest EU capital, a baroque fortress city and UNESCO World Heritage site.",70.00,180.00
+40,Vatican City,Vatican City,Southern Europe,"Smallest country in the world, home to St. Peter's Basilica and the Sistine Chapel.",180.00,420.00
+41,Vienna,Austria,Central Europe,"Imperial capital of coffee houses, opera, and grand Ringstrasse palaces.",100.00,270.00
+42,Vilnius,Lithuania,Northern Europe,Baroque old town capital with the largest medieval old town in the Baltics.,50.00,130.00
+43,Warsaw,Poland,Central Europe,Resilient capital meticulously reconstructed after WWII destruction.,55.00,150.00
+44,Zagreb,Croatia,Central Europe,Upper and lower town capital with excellent museums and cafe culture.,55.00,145.00
