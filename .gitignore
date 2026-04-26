@@ -2,3 +2,4 @@
 hotel-reservation-system/database/exports/
 __pycache__/
 *.pyc
+.venv/
