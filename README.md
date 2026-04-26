@@ -26,13 +26,20 @@ mysql_secure_installation
 mysql -u root -p < hotel-reservation-system/database/schema-creator.sql
 ```
 
-**4. Install Python dependency**
+**4. Create and activate a virtual environment**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**5. Install Python dependencies**
 
 ```bash
 pip install mysql-connector-python python-dotenv
 ```
 
-**5. Create a `.env` file** in the project root (./travel-database-project) on local
+**6. Create a `.env` file** in the project root (./travel-database-project) on local
 
 ```bash
 echo "DB_PASSWORD=yourpassword" > .env
@@ -40,7 +47,7 @@ echo "DB_PASSWORD=yourpassword" > .env
 
 yourpassword = the mysql secure connection password you setup, if any. Otherwise, you may skip this.
 
-**6. Export tables to CSV**
+**7. Export tables to CSV**
 
 ```bash
 python hotel-reservation-system/backend/export_db.py
