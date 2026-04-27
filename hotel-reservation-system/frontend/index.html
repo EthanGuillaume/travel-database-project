@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelDatabase — European Hotel Explorer</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- ── NAVBAR ─────────────────────────────────────────────────────────── -->
+    <nav class="navbar">
+      <div class="nav-logo">
+        <span class="logo-text">TravelDatabase</span>
+      </div>
+
+      <div class="nav-title">European Hotel Explorer</div>
+
+      <div class="nav-right">
+        <!-- shown when logged out -->
+        <div id="nav-auth-buttons">
+          <button class="btn-ghost" id="btn-open-login">Sign In</button>
+          <button class="btn-primary" id="btn-open-signup">Sign Up</button>
+        </div>
+        <!-- shown when logged in -->
+        <div id="nav-user-info" class="hidden">
+          <span id="nav-username"></span>
+          <button class="btn-ghost" id="btn-logout">Sign Out</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ── HERO ───────────────────────────────────────────────────────────── -->
+    <section class="hero">
+      <p class="hero-sub">Browse hotels across every European capital city.</p>
+      <p class="hero-note" id="hero-note-guest">
+        You're browsing as a guest —
+        <a href="#" id="hero-signin-link">sign in</a> to make reservations.
+      </p>
+      <p class="hero-note hidden" id="hero-note-user"></p>
+    </section>
+
+    <!-- ── MAIN SEARCH PANEL ─────────────────────────────────────────────── -->
+    <main class="container">
+      <div class="search-panel">
+        <!-- Country / City Selector -->
+        <div class="selector-row">
+          <div class="selector-group">
+            <label for="country-select">Country</label>
+            <select id="country-select">
+              <option value="">— Select a country —</option>
+            </select>
+          </div>
+
+          <div class="selector-group">
+            <label for="city-select">City</label>
+            <select id="city-select" disabled>
+              <option value="">— Select a city —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-row" id="filter-row">
+          <div class="filter-group">
+            <label for="filter-stars">Min Stars</label>
+            <select id="filter-stars">
+              <option value="">Any</option>
+              <option value="3">3+</option>
+              <option value="4">4+</option>
+              <option value="5">5 only</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="filter-budget">Max Price / Night ($)</label>
+            <input
+              type="number"
+              id="filter-budget"
+              placeholder="e.g. 200"
+              min="0"
+            />
+          </div>
+
+          <div class="filter-group filter-check">
+            <label>
+              <input type="checkbox" id="filter-restaurant" />
+              Restaurant included
+            </label>
+          </div>
+
+          <div class="filter-group filter-check">
+            <label>
+              <input type="checkbox" id="filter-available" checked />
+              Available only
+            </label>
+          </div>
+
+          <button class="btn-primary" id="btn-apply-filters">
+            Apply Filters
+          </button>
+          <button class="btn-ghost" id="btn-clear-filters">Clear</button>
+        </div>
+      </div>
+
+      <!-- City info card (shown after city selected) -->
+      <div class="city-info-card hidden" id="city-info-card">
+        <div class="city-info-text">
+          <h2 id="city-info-name"></h2>
+          <p id="city-info-desc"></p>
+          <span class="city-price-badge" id="city-price-badge"></span>
+        </div>
+      </div>
+
+      <!-- Hotel results -->
+      <div class="results-header hidden" id="results-header">
+        <span id="results-count"></span>
+      </div>
+
+      <div class="hotel-grid" id="hotel-grid">
+        <!-- hotel cards injected by app.js -->
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state hidden" id="empty-state">
+        <span class="empty-icon">🏨</span>
+        <p>No hotels match your filters. Try adjusting them.</p>
+      </div>
+
+      <!-- Initial prompt -->
+      <div class="initial-prompt" id="initial-prompt">
+        <span class="prompt-icon">🗺️</span>
+        <p>Select a country and city above to explore hotels.</p>
+      </div>
+    </main>
+
+    <!-- ── SIGN IN / SIGN UP MODAL ────────────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="auth-modal">
+      <div class="modal">
+        <button class="modal-close" id="auth-modal-close">✕</button>
+
+        <!-- Tab switcher -->
+        <div class="modal-tabs">
+          <button class="modal-tab active" id="tab-login" data-tab="login">
+            Sign In
+          </button>
+          <button class="modal-tab" id="tab-signup" data-tab="signup">
+            Sign Up
+          </button>
+        </div>
+
+        <!-- Login form -->
+        <form class="auth-form" id="form-login">
+          <h2>Welcome back</h2>
+          <div class="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              id="login-email"
+              placeholder="you@email.com"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              id="login-password"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+          <p class="form-error hidden" id="login-error"></p>
+          <button type="submit" class="btn-primary btn-full">Sign In</button>
+        </form>
+
+        <!-- Signup form -->
+        <form class="auth-form hidden" id="form-signup">
+          <h2>Create account</h2>
+          <div class="form-group">
+            <label>Username</label>
+            <input
+              type="text"
+              id="signup-username"
+              placeholder="Your name"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              id="signup-email"
+              placeholder="you@email.com"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              id="signup-password"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Preferred Budget Min ($)</label>
+            <input
+              type="number"
+              id="signup-budget-min"
+              placeholder="50"
+              min="0"
+            />
+          </div>
+          <div class="form-group">
+            <label>Preferred Budget Max ($)</label>
+            <input
+              type="number"
+              id="signup-budget-max"
+              placeholder="300"
+              min="0"
+            />
+          </div>
+          <p class="form-error hidden" id="signup-error"></p>
+          <button type="submit" class="btn-primary btn-full">
+            Create Account
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── RESERVATION MODAL ──────────────────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="reserve-modal">
+      <div class="modal">
+        <button class="modal-close" id="reserve-modal-close">✕</button>
+        <h2>Reserve Hotel</h2>
+        <p class="reserve-hotel-name" id="reserve-hotel-name"></p>
+        <form class="auth-form" id="form-reserve">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Check-in</label>
+              <input type="date" id="reserve-checkin" required />
+            </div>
+            <div class="form-group">
+              <label>Check-out</label>
+              <input type="date" id="reserve-checkout" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Guests</label>
+            <input
+              type="number"
+              id="reserve-guests"
+              min="1"
+              value="1"
+              required
+            />
+          </div>
+          <div class="reserve-summary hidden" id="reserve-summary">
+            <span>Estimated total: </span>
+            <strong id="reserve-total"></strong>
+          </div>
+          <p class="form-error hidden" id="reserve-error"></p>
+          <button type="submit" class="btn-primary btn-full">
+            Confirm Reservation
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── HOTEL DETAIL MODAL ─────────────────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="detail-modal">
+      <div class="modal modal-wide">
+        <button class="modal-close" id="detail-modal-close">✕</button>
+        <div id="detail-content"></div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p>TravelDatabase &copy; 2026 &mdash; Travel Database Project</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

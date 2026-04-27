@@ -9,15 +9,18 @@ Each developer creates their own local SQLite database — no server required.
 ```bash
 # 1. Set up a virtual environment
 cd hotel-reservation-system/backend
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Create (or reset) your local database
-python db.py
+# 3. Run the app
+python db.py       # only needed once to create the database
+python app.py      # starts Flask at http://127.0.0.1:5000
 ```
+
+Use pip3 or python3 if the previous commands don't work. For MacOS users.
 
 This runs `database/schema-creator.sql`, which:
 
@@ -25,14 +28,7 @@ This runs `database/schema-creator.sql`, which:
 - Inserts all 44 European capital cities
 - Inserts 2 real-world hotels per city (88 hotels total)
 
-The database file `travel.db` is created inside `backend/` and should be **git-ignored** (each developer owns their own copy).
-
-Add these to `.gitignore`:
-
-```
-hotel-reservation-system/backend/travel.db
-hotel-reservation-system/backend/.venv/
-```
+The database file `travel.db` is created inside `backend/`
 
 ## Schema
 
