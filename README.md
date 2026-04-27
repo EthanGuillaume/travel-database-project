@@ -25,13 +25,8 @@ This runs `database/schema-creator.sql`, which:
 - Inserts all 44 European capital cities
 - Inserts 2 real-world hotels per city (88 hotels total)
 
-The database file `travel.db` is created inside `backend/` and should be **git-ignored** (each developer owns their own copy).
+The database file `travel.db` is created inside `backend/`
 
-Add these to `.gitignore`:
-
-```
-hotel-reservation-system/backend/travel.db
-hotel-reservation-system/backend/.venv/
 ```
 
 ## Schema
@@ -44,3 +39,4 @@ hotel-reservation-system/backend/.venv/
 | `city`            | European capital cities with price ranges |
 | `hotel`           | Hotels linked to a city                   |
 | `reservation`     | Reservations made by registered users     |
+```
