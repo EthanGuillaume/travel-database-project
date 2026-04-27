@@ -1,417 +1,484 @@
 // app.js — frontend logic for TravelDatabase
+// This file handles everything the user sees and does on the page.
+// It talks to the Flask backend using fetch() to get data from the database.
 
-// ── STATE ────────────────────────────────────────────────────────────────────
+// ── GLOBAL VARIABLES ──────────────────────────────────────────────────────────
+// These store the current state of the app so different functions can use them.
 
-const state = {
-  currentUser: null, // { user_id, username, user_type } or null if guest
-  allCities: [], // full city list loaded on startup
-  currentCityId: null,
-  currentHotels: [], // hotels for the selected city (pre-filter)
-  filteredHotels: [], // hotels after applying filters
-  selectedHotel: null, // hotel object the user clicked "Reserve" on
-};
+let currentUser = null; // the logged-in user object, or null if not logged in
+let allCities = []; // list of all cities, loaded once when the page opens
+let currentHotels = []; // hotels for the city the user picked
+let selectedHotel = null; // the hotel the user clicked "Reserve" on
 
-// ── API STUBS ─────────────────────────────────────────────────────────────────
-// Replace each stub with a real fetch() call to Flask backend.
-// Example:  return await fetch('/api/cities').then(r => r.json());
+// ── FETCH HELPERS ─────────────────────────────────────────────────────────────
+// These functions talk to the Flask backend (app.py).
+// To implement a route, add it to app.py — see the README for examples.
 
-const API = {
-  getCities: () => fetch("/api/cities").then((r) => r.json()),
-
-  getHotelsByCity: (cityId) =>
-    fetch(`/api/cities/${cityId}/hotels`).then((r) => r.json()),
-
-  login: (email, password) =>
-    fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    }).then((r) => r.json()),
-
-  register: (data) =>
-    fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((r) => r.json()),
-
-  makeReservation: (data) =>
-    fetch("/api/reservations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((r) => r.json()),
-
-  me: () => fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)),
-
-  logout: () => fetch("/api/auth/logout", { method: "POST" }),
-};
-
-// ── ELEMENT REFS ──────────────────────────────────────────────────────────────
-
-const $ = (id) => document.getElementById(id);
-
-const els = {
-  // nav
-  navAuthButtons: $("nav-auth-buttons"),
-  navUserInfo: $("nav-user-info"),
-  navUsername: $("nav-username"),
-  btnOpenLogin: $("btn-open-login"),
-  btnOpenSignup: $("btn-open-signup"),
-  btnLogout: $("btn-logout"),
-  // hero
-  heroNoteGuest: $("hero-note-guest"),
-  heroNoteUser: $("hero-note-user"),
-  heroSigninLink: $("hero-signin-link"),
-  // selectors
-  countrySelect: $("country-select"),
-  citySelect: $("city-select"),
-  // filters
-  filterStars: $("filter-stars"),
-  filterBudget: $("filter-budget"),
-  filterRestaurant: $("filter-restaurant"),
-  filterAvailable: $("filter-available"),
-  btnApplyFilters: $("btn-apply-filters"),
-  btnClearFilters: $("btn-clear-filters"),
-  // city info
-  cityInfoCard: $("city-info-card"),
-  cityInfoName: $("city-info-name"),
-  cityInfoDesc: $("city-info-desc"),
-  cityPriceBadge: $("city-price-badge"),
-  // results
-  resultsHeader: $("results-header"),
-  resultsCount: $("results-count"),
-  hotelGrid: $("hotel-grid"),
-  emptyState: $("empty-state"),
-  initialPrompt: $("initial-prompt"),
-  // auth modal
-  authModal: $("auth-modal"),
-  authModalClose: $("auth-modal-close"),
-  tabLogin: $("tab-login"),
-  tabSignup: $("tab-signup"),
-  formLogin: $("form-login"),
-  formSignup: $("form-signup"),
-  loginEmail: $("login-email"),
-  loginPassword: $("login-password"),
-  loginError: $("login-error"),
-  signupUsername: $("signup-username"),
-  signupEmail: $("signup-email"),
-  signupPassword: $("signup-password"),
-  signupBudgetMin: $("signup-budget-min"),
-  signupBudgetMax: $("signup-budget-max"),
-  signupError: $("signup-error"),
-  // reserve modal
-  reserveModal: $("reserve-modal"),
-  reserveModalClose: $("reserve-modal-close"),
-  reserveHotelName: $("reserve-hotel-name"),
-  formReserve: $("form-reserve"),
-  reserveCheckin: $("reserve-checkin"),
-  reserveCheckout: $("reserve-checkout"),
-  reserveGuests: $("reserve-guests"),
-  reserveSummary: $("reserve-summary"),
-  reserveTotal: $("reserve-total"),
-  reserveError: $("reserve-error"),
-  // detail modal
-  detailModal: $("detail-modal"),
-  detailModalClose: $("detail-modal-close"),
-  detailContent: $("detail-content"),
-};
-
-// ── AUTH HELPERS ──────────────────────────────────────────────────────────────
-
-function setUser(user) {
-  state.currentUser = user;
-  if (user) {
-    els.navAuthButtons.classList.add("hidden");
-    els.navUserInfo.classList.remove("hidden");
-    els.navUsername.textContent = user.username;
-    els.heroNoteGuest.classList.add("hidden");
-    els.heroNoteUser.classList.remove("hidden");
-    els.heroNoteUser.textContent = `Welcome back, ${user.username}! You can browse and make reservations.`;
-  } else {
-    els.navAuthButtons.classList.remove("hidden");
-    els.navUserInfo.classList.add("hidden");
-    els.heroNoteGuest.classList.remove("hidden");
-    els.heroNoteUser.classList.add("hidden");
-  }
-  // re-render hotel cards so reserve buttons update
-  if (state.filteredHotels.length) renderHotels(state.filteredHotels);
+async function getCities() {
+  const response = await fetch("/api/cities");
+  return await response.json();
 }
 
-// ── AUTH MODAL ────────────────────────────────────────────────────────────────
+async function getHotelsByCity(cityId) {
+  const response = await fetch("/api/cities/" + cityId + "/hotels");
+  return await response.json();
+}
 
-function openAuthModal(tab = "login") {
-  els.authModal.classList.remove("hidden");
-  switchAuthTab(tab);
+async function loginUser(email, password) {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email, password: password }),
+  });
+  return await response.json();
+}
+
+async function registerUser(username, email, password, budgetMin, budgetMax) {
+  const response = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: username,
+      email: email,
+      password: password,
+      preferred_budget_min: budgetMin,
+      preferred_budget_max: budgetMax,
+    }),
+  });
+  return await response.json();
+}
+
+async function makeReservation(hotelId, checkin, checkout, guests, userId) {
+  const response = await fetch("/api/reservations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      hotel_id: hotelId,
+      check_in_date: checkin,
+      check_out_date: checkout,
+      number_of_guests: guests,
+      user_id: userId,
+    }),
+  });
+  return await response.json();
+}
+
+async function getLoggedInUser() {
+  const response = await fetch("/api/auth/me");
+  if (response.ok) {
+    return await response.json();
+  }
+  return null;
+}
+
+async function logoutUser() {
+  await fetch("/api/auth/logout", { method: "POST" });
+}
+
+// ── AUTH: LOGIN / LOGOUT / SIGNUP ─────────────────────────────────────────────
+
+function updateNavForUser(user) {
+  // shows/hides the right buttons in the navbar depending on login state
+  if (user) {
+    document.getElementById("nav-auth-buttons").classList.add("hidden");
+    document.getElementById("nav-user-info").classList.remove("hidden");
+    document.getElementById("nav-username").textContent = user.username;
+    document.getElementById("hero-note-guest").classList.add("hidden");
+    document.getElementById("hero-note-user").classList.remove("hidden");
+    document.getElementById("hero-note-user").textContent =
+      "Welcome back, " +
+      user.username +
+      "! You can browse and make reservations.";
+  } else {
+    document.getElementById("nav-auth-buttons").classList.remove("hidden");
+    document.getElementById("nav-user-info").classList.add("hidden");
+    document.getElementById("hero-note-guest").classList.remove("hidden");
+    document.getElementById("hero-note-user").classList.add("hidden");
+  }
+
+  // re-render hotel cards so the Reserve button updates correctly
+  if (currentHotels.length > 0) {
+    showHotels(getFilteredHotels());
+  }
+}
+
+// open/close the login+signup modal
+function openAuthModal(tab) {
+  document.getElementById("auth-modal").classList.remove("hidden");
+  switchTab(tab);
 }
 function closeAuthModal() {
-  els.authModal.classList.add("hidden");
+  document.getElementById("auth-modal").classList.add("hidden");
 }
-function switchAuthTab(tab) {
+function switchTab(tab) {
   if (tab === "login") {
-    els.formLogin.classList.remove("hidden");
-    els.formSignup.classList.add("hidden");
-    els.tabLogin.classList.add("active");
-    els.tabSignup.classList.remove("active");
+    document.getElementById("form-login").classList.remove("hidden");
+    document.getElementById("form-signup").classList.add("hidden");
+    document.getElementById("tab-login").classList.add("active");
+    document.getElementById("tab-signup").classList.remove("active");
   } else {
-    els.formLogin.classList.add("hidden");
-    els.formSignup.classList.remove("hidden");
-    els.tabLogin.classList.remove("active");
-    els.tabSignup.classList.add("active");
+    document.getElementById("form-login").classList.add("hidden");
+    document.getElementById("form-signup").classList.remove("hidden");
+    document.getElementById("tab-login").classList.remove("active");
+    document.getElementById("tab-signup").classList.add("active");
   }
 }
 
-els.btnOpenLogin.addEventListener("click", () => openAuthModal("login"));
-els.btnOpenSignup.addEventListener("click", () => openAuthModal("signup"));
-els.heroSigninLink.addEventListener("click", (e) => {
-  e.preventDefault();
-  openAuthModal("login");
-});
-els.authModalClose.addEventListener("click", closeAuthModal);
-els.authModal.addEventListener("click", (e) => {
-  if (e.target === els.authModal) closeAuthModal();
-});
-els.tabLogin.addEventListener("click", () => switchAuthTab("login"));
-els.tabSignup.addEventListener("click", () => switchAuthTab("signup"));
-
-els.btnLogout.addEventListener("click", async () => {
-  await API.logout();
-  setUser(null);
-});
-
-els.formLogin.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  els.loginError.classList.add("hidden");
-  const result = await API.login(els.loginEmail.value, els.loginPassword.value);
-  if (result.error) {
-    els.loginError.textContent = result.error;
-    els.loginError.classList.remove("hidden");
-  } else {
-    setUser(result);
-    closeAuthModal();
-  }
-});
-
-els.formSignup.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  els.signupError.classList.add("hidden");
-  const budgetMin = parseFloat(els.signupBudgetMin.value) || 0;
-  const budgetMax = parseFloat(els.signupBudgetMax.value) || 0;
-  if (budgetMax && budgetMax < budgetMin) {
-    els.signupError.textContent = "Budget max must be >= budget min.";
-    els.signupError.classList.remove("hidden");
-    return;
-  }
-  const result = await API.register({
-    username: els.signupUsername.value,
-    email: els.signupEmail.value,
-    password: els.signupPassword.value,
-    preferred_budget_min: budgetMin,
-    preferred_budget_max: budgetMax,
+document
+  .getElementById("btn-open-login")
+  .addEventListener("click", function () {
+    openAuthModal("login");
   });
-  if (result.error) {
-    els.signupError.textContent = result.error;
-    els.signupError.classList.remove("hidden");
-  } else {
-    setUser(result);
-    closeAuthModal();
-  }
+document
+  .getElementById("btn-open-signup")
+  .addEventListener("click", function () {
+    openAuthModal("signup");
+  });
+document
+  .getElementById("auth-modal-close")
+  .addEventListener("click", closeAuthModal);
+document.getElementById("tab-login").addEventListener("click", function () {
+  switchTab("login");
+});
+document.getElementById("tab-signup").addEventListener("click", function () {
+  switchTab("signup");
 });
 
-// ── CITY / COUNTRY LOADING ────────────────────────────────────────────────────
+// close modal if user clicks outside of it
+document.getElementById("auth-modal").addEventListener("click", function (e) {
+  if (e.target === document.getElementById("auth-modal")) closeAuthModal();
+});
+
+document
+  .getElementById("hero-signin-link")
+  .addEventListener("click", function (e) {
+    e.preventDefault();
+    openAuthModal("login");
+  });
+
+document
+  .getElementById("btn-logout")
+  .addEventListener("click", async function () {
+    await logoutUser();
+    currentUser = null;
+    updateNavForUser(null);
+  });
+
+document
+  .getElementById("form-login")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
+    document.getElementById("login-error").classList.add("hidden");
+
+    const email = document.getElementById("login-email").value;
+    const password = document.getElementById("login-password").value;
+    const result = await loginUser(email, password);
+
+    if (result.error) {
+      document.getElementById("login-error").textContent = result.error;
+      document.getElementById("login-error").classList.remove("hidden");
+    } else {
+      currentUser = result;
+      updateNavForUser(currentUser);
+      closeAuthModal();
+    }
+  });
+
+document
+  .getElementById("form-signup")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
+    document.getElementById("signup-error").classList.add("hidden");
+
+    const budgetMin =
+      parseFloat(document.getElementById("signup-budget-min").value) || 0;
+    const budgetMax =
+      parseFloat(document.getElementById("signup-budget-max").value) || 0;
+
+    if (budgetMax > 0 && budgetMax < budgetMin) {
+      document.getElementById("signup-error").textContent =
+        "Budget max must be greater than budget min.";
+      document.getElementById("signup-error").classList.remove("hidden");
+      return;
+    }
+
+    const result = await registerUser(
+      document.getElementById("signup-username").value,
+      document.getElementById("signup-email").value,
+      document.getElementById("signup-password").value,
+      budgetMin,
+      budgetMax,
+    );
+
+    if (result.error) {
+      document.getElementById("signup-error").textContent = result.error;
+      document.getElementById("signup-error").classList.remove("hidden");
+    } else {
+      currentUser = result;
+      updateNavForUser(currentUser);
+      closeAuthModal();
+    }
+  });
+
+// ── COUNTRY / CITY DROPDOWNS ──────────────────────────────────────────────────
 
 async function loadCities() {
-  state.allCities = await API.getCities();
-  populateCountrySelect();
+  allCities = await getCities();
+  populateCountryDropdown();
 }
 
-function populateCountrySelect() {
-  // build sorted unique country list
-  const countries = [...new Set(state.allCities.map((c) => c.country))].sort();
-  els.countrySelect.innerHTML =
-    '<option value="">— Select a country —</option>';
-  countries.forEach((country) => {
-    const opt = document.createElement("option");
-    opt.value = country;
-    opt.textContent = country;
-    els.countrySelect.appendChild(opt);
-  });
+function populateCountryDropdown() {
+  const countrySet = new Set();
+  for (let i = 0; i < allCities.length; i++) {
+    countrySet.add(allCities[i].country);
+  }
+
+  const countries = Array.from(countrySet).sort();
+  const countrySelect = document.getElementById("country-select");
+  countrySelect.innerHTML = '<option value="">— Select a country —</option>';
+
+  for (let i = 0; i < countries.length; i++) {
+    const option = document.createElement("option");
+    option.value = countries[i];
+    option.textContent = countries[i];
+    countrySelect.appendChild(option);
+  }
 }
 
-els.countrySelect.addEventListener("change", () => {
-  const country = els.countrySelect.value;
-  els.citySelect.innerHTML = '<option value="">— Select a city —</option>';
-  els.citySelect.disabled = !country;
+document
+  .getElementById("country-select")
+  .addEventListener("change", function () {
+    const country = this.value;
+    const citySelect = document.getElementById("city-select");
 
-  if (!country) {
-    resetCityView();
-    return;
-  }
+    citySelect.innerHTML = '<option value="">— Select a city —</option>';
+    citySelect.disabled = !country;
 
-  const cities = state.allCities
-    .filter((c) => c.country === country)
-    .sort((a, b) => a.city_name.localeCompare(b.city_name));
-  cities.forEach((city) => {
-    const opt = document.createElement("option");
-    opt.value = city.city_id;
-    opt.textContent = city.city_name;
-    els.citySelect.appendChild(opt);
+    if (!country) {
+      resetView();
+      return;
+    }
+
+    // filter cities to just the selected country
+    const citiesInCountry = allCities.filter(function (c) {
+      return c.country === country;
+    });
+    citiesInCountry.sort(function (a, b) {
+      return a.city_name.localeCompare(b.city_name);
+    });
+
+    for (let i = 0; i < citiesInCountry.length; i++) {
+      const option = document.createElement("option");
+      option.value = citiesInCountry[i].city_id;
+      option.textContent = citiesInCountry[i].city_name;
+      citySelect.appendChild(option);
+    }
+
+    // if there's only one city in the country, auto-select it
+    if (citiesInCountry.length === 1) {
+      citySelect.value = citiesInCountry[0].city_id;
+      citySelect.dispatchEvent(new Event("change"));
+    }
   });
 
-  // auto-select if only one city in that country
-  if (cities.length === 1) {
-    els.citySelect.value = cities[0].city_id;
-    els.citySelect.dispatchEvent(new Event("change"));
-  }
-});
+document
+  .getElementById("city-select")
+  .addEventListener("change", async function () {
+    const cityId = parseInt(this.value);
+    if (!cityId) {
+      resetView();
+      return;
+    }
 
-els.citySelect.addEventListener("change", async () => {
-  const cityId = parseInt(els.citySelect.value);
-  if (!cityId) {
-    resetCityView();
-    return;
-  }
+    const city = allCities.find(function (c) {
+      return c.city_id === cityId;
+    });
 
-  state.currentCityId = cityId;
-  const city = state.allCities.find((c) => c.city_id === cityId);
+    // show the city info card above the hotel grid
+    document.getElementById("city-info-card").classList.remove("hidden");
+    document.getElementById("city-info-name").textContent =
+      city.city_name + ", " + city.country;
+    document.getElementById("city-info-desc").textContent =
+      city.description || "";
 
-  // show city info card
-  els.cityInfoCard.classList.remove("hidden");
-  els.cityInfoName.textContent = `${city.city_name}, ${city.country}`;
-  els.cityInfoDesc.textContent = city.description || "";
-  els.cityPriceBadge.textContent =
-    city.avg_hotel_price_low && city.avg_hotel_price_high
-      ? `Avg. $${city.avg_hotel_price_low} – $${city.avg_hotel_price_high} / night`
-      : "";
+    if (city.avg_hotel_price_low && city.avg_hotel_price_high) {
+      document.getElementById("city-price-badge").textContent =
+        "Avg. $" +
+        city.avg_hotel_price_low +
+        " – $" +
+        city.avg_hotel_price_high +
+        " / night";
+    } else {
+      document.getElementById("city-price-badge").textContent = "";
+    }
 
-  els.initialPrompt.classList.add("hidden");
-  els.hotelGrid.innerHTML =
-    '<p style="color:var(--text-soft);padding:2rem 0">Loading hotels…</p>';
-  els.resultsHeader.classList.add("hidden");
-  els.emptyState.classList.add("hidden");
+    document.getElementById("initial-prompt").classList.add("hidden");
+    document.getElementById("hotel-grid").innerHTML =
+      '<p style="color:var(--text-soft);padding:2rem 0">Loading hotels…</p>';
+    document.getElementById("results-header").classList.add("hidden");
+    document.getElementById("empty-state").classList.add("hidden");
 
-  state.currentHotels = await API.getHotelsByCity(cityId);
-  applyFilters();
-});
+    currentHotels = await getHotelsByCity(cityId);
+    showHotels(getFilteredHotels());
+  });
 
-function resetCityView() {
-  state.currentCityId = null;
-  state.currentHotels = [];
-  state.filteredHotels = [];
-  els.cityInfoCard.classList.add("hidden");
-  els.resultsHeader.classList.add("hidden");
-  els.emptyState.classList.add("hidden");
-  els.hotelGrid.innerHTML = "";
-  els.initialPrompt.classList.remove("hidden");
+function resetView() {
+  currentHotels = [];
+  document.getElementById("city-info-card").classList.add("hidden");
+  document.getElementById("results-header").classList.add("hidden");
+  document.getElementById("empty-state").classList.add("hidden");
+  document.getElementById("hotel-grid").innerHTML = "";
+  document.getElementById("initial-prompt").classList.remove("hidden");
 }
 
 // ── FILTERS ───────────────────────────────────────────────────────────────────
 
-function applyFilters() {
-  const minStars = parseInt(els.filterStars.value) || 0;
-  const maxBudget = parseFloat(els.filterBudget.value) || Infinity;
-  const restaurant = els.filterRestaurant.checked;
-  const availOnly = els.filterAvailable.checked;
+function getFilteredHotels() {
+  const minStars = parseInt(document.getElementById("filter-stars").value) || 0;
+  const maxBudget =
+    parseFloat(document.getElementById("filter-budget").value) || Infinity;
+  const needsRestaurant = document.getElementById("filter-restaurant").checked;
+  const availableOnly = document.getElementById("filter-available").checked;
 
-  state.filteredHotels = state.currentHotels.filter((h) => {
-    if (h.star_rating < minStars) return false;
-    if (h.price_per_night > maxBudget) return false;
-    if (restaurant && h.restaurant_included !== 1) return false;
-    if (availOnly && h.availability_status !== "available") return false;
-    return true;
-  });
-
-  renderHotels(state.filteredHotels);
+  const filtered = [];
+  for (let i = 0; i < currentHotels.length; i++) {
+    const hotel = currentHotels[i];
+    if (hotel.star_rating < minStars) continue;
+    if (hotel.price_per_night > maxBudget) continue;
+    if (needsRestaurant && hotel.restaurant_included !== 1) continue;
+    if (availableOnly && hotel.availability_status !== "available") continue;
+    filtered.push(hotel);
+  }
+  return filtered;
 }
 
-els.btnApplyFilters.addEventListener("click", applyFilters);
+document
+  .getElementById("btn-apply-filters")
+  .addEventListener("click", function () {
+    showHotels(getFilteredHotels());
+  });
 
-els.btnClearFilters.addEventListener("click", () => {
-  els.filterStars.value = "";
-  els.filterBudget.value = "";
-  els.filterRestaurant.checked = false;
-  els.filterAvailable.checked = true;
-  applyFilters();
-});
+document
+  .getElementById("btn-clear-filters")
+  .addEventListener("click", function () {
+    document.getElementById("filter-stars").value = "";
+    document.getElementById("filter-budget").value = "";
+    document.getElementById("filter-restaurant").checked = false;
+    document.getElementById("filter-available").checked = true;
+    showHotels(getFilteredHotels());
+  });
 
-// ── HOTEL RENDERING ───────────────────────────────────────────────────────────
+// ── HOTEL CARDS ───────────────────────────────────────────────────────────────
 
-function renderHotels(hotels) {
-  els.hotelGrid.innerHTML = "";
-  els.resultsHeader.classList.remove("hidden");
+function showHotels(hotels) {
+  const grid = document.getElementById("hotel-grid");
+  grid.innerHTML = "";
+  document.getElementById("results-header").classList.remove("hidden");
 
-  if (!hotels.length) {
-    els.emptyState.classList.remove("hidden");
-    els.resultsCount.textContent = "0 hotels found";
+  if (hotels.length === 0) {
+    document.getElementById("empty-state").classList.remove("hidden");
+    document.getElementById("results-count").textContent = "0 hotels found";
     return;
   }
 
-  els.emptyState.classList.add("hidden");
-  els.resultsCount.textContent = `${hotels.length} hotel${hotels.length !== 1 ? "s" : ""} found`;
+  document.getElementById("empty-state").classList.add("hidden");
+  document.getElementById("results-count").textContent =
+    hotels.length + " hotel" + (hotels.length !== 1 ? "s" : "") + " found";
 
-  hotels.forEach((hotel) => {
-    const card = buildHotelCard(hotel);
-    els.hotelGrid.appendChild(card);
-  });
+  for (let i = 0; i < hotels.length; i++) {
+    const card = buildHotelCard(hotels[i]);
+    grid.appendChild(card);
+  }
 }
 
 function buildHotelCard(hotel) {
   const card = document.createElement("div");
   card.className = "hotel-card";
 
-  const stars =
-    "★".repeat(hotel.star_rating) + "☆".repeat(5 - hotel.star_rating);
+  const starsFilled = "★".repeat(hotel.star_rating);
+  const starsEmpty = "☆".repeat(5 - hotel.star_rating);
+  const stars = starsFilled + starsEmpty;
+
   const isAvailable = hotel.availability_status === "available";
   const hasRestaurant = hotel.restaurant_included === 1;
-  const isLoggedIn = !!state.currentUser;
+  const isLoggedIn = currentUser !== null;
 
-  card.innerHTML = `
-    <div class="hotel-card-header">
-      <span class="hotel-status-badge ${isAvailable ? "status-available" : "status-unavailable"}">
-        ${isAvailable ? "Available" : "Unavailable"}
-      </span>
-      <h3>${hotel.hotel_name}</h3>
-      <p class="hotel-address">${hotel.address || ""}</p>
-    </div>
-    <div class="hotel-card-body">
-      <div class="hotel-meta">
-        <span class="stars" title="${hotel.star_rating} stars">${stars}</span>
-        <span class="tag ${hasRestaurant ? "tag-restaurant" : "tag-no-restaurant"}">
-          ${hasRestaurant ? "🍽 Restaurant" : "No restaurant"}
-        </span>
-      </div>
-      <p class="hotel-desc">${hotel.description || ""}</p>
-    </div>
-    <div class="hotel-card-footer">
-      <div class="hotel-price">$${hotel.price_per_night.toFixed(2)} <span>/ night</span></div>
-      <button
-        class="btn-reserve"
-        data-hotel-id="${hotel.hotel_id}"
-        ${!isLoggedIn || !isAvailable ? "disabled" : ""}
-        title="${!isLoggedIn ? "Sign in to reserve" : !isAvailable ? "Not available" : "Reserve this hotel"}"
-      >
-        ${isLoggedIn ? "Reserve" : "Sign in"}
-      </button>
-    </div>
-  `;
+  const statusClass = isAvailable ? "status-available" : "status-unavailable";
+  const statusText = isAvailable ? "Available" : "Unavailable";
+  const restaurantTag = hasRestaurant
+    ? '<span class="tag tag-restaurant">🍽 Restaurant</span>'
+    : '<span class="tag tag-no-restaurant">No restaurant</span>';
 
-  // click card body → open detail modal
-  card
-    .querySelector(".hotel-card-body")
-    .addEventListener("click", () => openDetailModal(hotel));
+  let reserveButtonDisabled = "";
+  let reserveButtonTitle = "Reserve this hotel";
+  let reserveButtonText = "Reserve";
+
+  if (!isLoggedIn) {
+    reserveButtonDisabled = "disabled";
+    reserveButtonTitle = "Sign in to reserve";
+    reserveButtonText = "Sign in";
+  } else if (!isAvailable) {
+    reserveButtonDisabled = "disabled";
+    reserveButtonTitle = "Not available";
+  }
+
+  card.innerHTML =
+    '<div class="hotel-card-header">' +
+    '<span class="hotel-status-badge ' +
+    statusClass +
+    '">' +
+    statusText +
+    "</span>" +
+    "<h3>" +
+    hotel.hotel_name +
+    "</h3>" +
+    '<p class="hotel-address">' +
+    (hotel.address || "") +
+    "</p>" +
+    "</div>" +
+    '<div class="hotel-card-body">' +
+    '<div class="hotel-meta">' +
+    '<span class="stars">' +
+    stars +
+    "</span>" +
+    restaurantTag +
+    "</div>" +
+    '<p class="hotel-desc">' +
+    (hotel.description || "") +
+    "</p>" +
+    "</div>" +
+    '<div class="hotel-card-footer">' +
+    '<div class="hotel-price">$' +
+    hotel.price_per_night.toFixed(2) +
+    " <span>/ night</span></div>" +
+    '<button class="btn-reserve" ' +
+    reserveButtonDisabled +
+    ' title="' +
+    reserveButtonTitle +
+    '">' +
+    reserveButtonText +
+    "</button>" +
+    "</div>";
+
+  // clicking the card header or body opens the detail popup
   card
     .querySelector(".hotel-card-header")
-    .addEventListener("click", () => openDetailModal(hotel));
+    .addEventListener("click", function () {
+      openDetailModal(hotel);
+    });
+  card.querySelector(".hotel-card-body").addEventListener("click", function () {
+    openDetailModal(hotel);
+  });
 
-  // click reserve button
+  // clicking the reserve button
   const reserveBtn = card.querySelector(".btn-reserve");
   if (isLoggedIn && isAvailable) {
-    reserveBtn.addEventListener("click", (e) => {
+    reserveBtn.addEventListener("click", function (e) {
       e.stopPropagation();
       openReserveModal(hotel);
     });
   } else if (!isLoggedIn) {
-    reserveBtn.addEventListener("click", (e) => {
+    reserveBtn.addEventListener("click", function (e) {
       e.stopPropagation();
       openAuthModal("login");
     });
@@ -425,120 +492,155 @@ function buildHotelCard(hotel) {
 function openDetailModal(hotel) {
   const stars =
     "★".repeat(hotel.star_rating) + "☆".repeat(5 - hotel.star_rating);
-  const city = state.allCities.find((c) => c.city_id === hotel.city_id);
+  const city = allCities.find(function (c) {
+    return c.city_id === hotel.city_id;
+  });
+  const cityText = city ? city.city_name + ", " + city.country : "—";
 
-  els.detailContent.innerHTML = `
-    <div class="detail-header">
-      <h2>${hotel.hotel_name}</h2>
-      <p>${hotel.address || ""}</p>
-    </div>
-    <div class="detail-body">
-      <div class="detail-row"><span class="detail-label">City</span><span>${city ? `${city.city_name}, ${city.country}` : "—"}</span></div>
-      <div class="detail-row"><span class="detail-label">Stars</span><span>${stars}</span></div>
-      <div class="detail-row"><span class="detail-label">Price / night</span><span>$${hotel.price_per_night.toFixed(2)}</span></div>
-      <div class="detail-row"><span class="detail-label">Restaurant</span><span>${hotel.restaurant_included === 1 ? "Yes" : "No"}</span></div>
-      <div class="detail-row"><span class="detail-label">Availability</span><span>${hotel.availability_status}</span></div>
-      <p class="detail-desc">${hotel.description || ""}</p>
-    </div>
-  `;
-  els.detailModal.classList.remove("hidden");
+  document.getElementById("detail-content").innerHTML =
+    '<div class="detail-header">' +
+    "<h2>" +
+    hotel.hotel_name +
+    "</h2>" +
+    "<p>" +
+    (hotel.address || "") +
+    "</p>" +
+    "</div>" +
+    '<div class="detail-body">' +
+    '<div class="detail-row"><span class="detail-label">City</span><span>' +
+    cityText +
+    "</span></div>" +
+    '<div class="detail-row"><span class="detail-label">Stars</span><span>' +
+    stars +
+    "</span></div>" +
+    '<div class="detail-row"><span class="detail-label">Price / night</span><span>$' +
+    hotel.price_per_night.toFixed(2) +
+    "</span></div>" +
+    '<div class="detail-row"><span class="detail-label">Restaurant</span><span>' +
+    (hotel.restaurant_included === 1 ? "Yes" : "No") +
+    "</span></div>" +
+    '<div class="detail-row"><span class="detail-label">Availability</span><span>' +
+    hotel.availability_status +
+    "</span></div>" +
+    '<p class="detail-desc">' +
+    (hotel.description || "") +
+    "</p>" +
+    "</div>";
+
+  document.getElementById("detail-modal").classList.remove("hidden");
 }
 
-els.detailModalClose.addEventListener("click", () =>
-  els.detailModal.classList.add("hidden"),
-);
-els.detailModal.addEventListener("click", (e) => {
-  if (e.target === els.detailModal) els.detailModal.classList.add("hidden");
+document
+  .getElementById("detail-modal-close")
+  .addEventListener("click", function () {
+    document.getElementById("detail-modal").classList.add("hidden");
+  });
+document.getElementById("detail-modal").addEventListener("click", function (e) {
+  if (e.target === document.getElementById("detail-modal")) {
+    document.getElementById("detail-modal").classList.add("hidden");
+  }
 });
 
 // ── RESERVATION MODAL ─────────────────────────────────────────────────────────
 
 function openReserveModal(hotel) {
-  state.selectedHotel = hotel;
-  els.reserveHotelName.textContent = hotel.hotel_name;
-  els.reserveCheckin.value = "";
-  els.reserveCheckout.value = "";
-  els.reserveGuests.value = 1;
-  els.reserveSummary.classList.add("hidden");
-  els.reserveError.classList.add("hidden");
+  selectedHotel = hotel;
 
-  // set min date to today
+  document.getElementById("reserve-hotel-name").textContent = hotel.hotel_name;
+  document.getElementById("reserve-checkin").value = "";
+  document.getElementById("reserve-checkout").value = "";
+  document.getElementById("reserve-guests").value = 1;
+  document.getElementById("reserve-summary").classList.add("hidden");
+  document.getElementById("reserve-error").classList.add("hidden");
+
   const today = new Date().toISOString().split("T")[0];
-  els.reserveCheckin.min = today;
-  els.reserveCheckout.min = today;
+  document.getElementById("reserve-checkin").min = today;
+  document.getElementById("reserve-checkout").min = today;
 
-  els.reserveModal.classList.remove("hidden");
+  document.getElementById("reserve-modal").classList.remove("hidden");
 }
 
-// live cost estimate as dates change
 function updateReservationSummary() {
-  const checkin = new Date(els.reserveCheckin.value);
-  const checkout = new Date(els.reserveCheckout.value);
-  if (
-    !els.reserveCheckin.value ||
-    !els.reserveCheckout.value ||
-    checkout <= checkin
-  ) {
-    els.reserveSummary.classList.add("hidden");
+  const checkin = document.getElementById("reserve-checkin").value;
+  const checkout = document.getElementById("reserve-checkout").value;
+
+  if (!checkin || !checkout || new Date(checkout) <= new Date(checkin)) {
+    document.getElementById("reserve-summary").classList.add("hidden");
     return;
   }
-  const nights = Math.round((checkout - checkin) / 86400000);
-  const total = (nights * state.selectedHotel.price_per_night).toFixed(2);
-  els.reserveTotal.textContent = `$${total} (${nights} night${nights !== 1 ? "s" : ""})`;
-  els.reserveSummary.classList.remove("hidden");
+
+  const nights = Math.round(
+    (new Date(checkout) - new Date(checkin)) / 86400000,
+  );
+  const total = (nights * selectedHotel.price_per_night).toFixed(2);
+  document.getElementById("reserve-total").textContent =
+    "$" + total + " (" + nights + " night" + (nights !== 1 ? "s" : "") + ")";
+  document.getElementById("reserve-summary").classList.remove("hidden");
 }
 
-els.reserveCheckin.addEventListener("change", () => {
-  // checkout must be after checkin
-  els.reserveCheckout.min = els.reserveCheckin.value;
-  updateReservationSummary();
-});
-els.reserveCheckout.addEventListener("change", updateReservationSummary);
+document
+  .getElementById("reserve-checkin")
+  .addEventListener("change", function () {
+    document.getElementById("reserve-checkout").min = this.value;
+    updateReservationSummary();
+  });
+document
+  .getElementById("reserve-checkout")
+  .addEventListener("change", updateReservationSummary);
 
-els.reserveModalClose.addEventListener("click", () =>
-  els.reserveModal.classList.add("hidden"),
-);
-els.reserveModal.addEventListener("click", (e) => {
-  if (e.target === els.reserveModal) els.reserveModal.classList.add("hidden");
-});
-
-els.formReserve.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  els.reserveError.classList.add("hidden");
-
-  const checkin = els.reserveCheckin.value;
-  const checkout = els.reserveCheckout.value;
-
-  if (new Date(checkout) <= new Date(checkin)) {
-    els.reserveError.textContent = "Check-out must be after check-in.";
-    els.reserveError.classList.remove("hidden");
-    return;
-  }
-
-  const result = await API.makeReservation({
-    hotel_id: state.selectedHotel.hotel_id,
-    check_in_date: checkin,
-    check_out_date: checkout,
-    number_of_guests: parseInt(els.reserveGuests.value),
-    user_id: state.currentUser.user_id,
+document
+  .getElementById("reserve-modal-close")
+  .addEventListener("click", function () {
+    document.getElementById("reserve-modal").classList.add("hidden");
+  });
+document
+  .getElementById("reserve-modal")
+  .addEventListener("click", function (e) {
+    if (e.target === document.getElementById("reserve-modal")) {
+      document.getElementById("reserve-modal").classList.add("hidden");
+    }
   });
 
-  if (result.error) {
-    els.reserveError.textContent = result.error;
-    els.reserveError.classList.remove("hidden");
-  } else {
-    els.reserveModal.classList.add("hidden");
-    alert(`Reservation confirmed! ID: ${result.reservation_id}`);
-    // TODO: show a nicer confirmation UI instead of alert
-  }
-});
+document
+  .getElementById("form-reserve")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
+    document.getElementById("reserve-error").classList.add("hidden");
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
+    const checkin = document.getElementById("reserve-checkin").value;
+    const checkout = document.getElementById("reserve-checkout").value;
+
+    if (new Date(checkout) <= new Date(checkin)) {
+      document.getElementById("reserve-error").textContent =
+        "Check-out must be after check-in.";
+      document.getElementById("reserve-error").classList.remove("hidden");
+      return;
+    }
+
+    const result = await makeReservation(
+      selectedHotel.hotel_id,
+      checkin,
+      checkout,
+      parseInt(document.getElementById("reserve-guests").value),
+      currentUser.user_id,
+    );
+
+    if (result.error) {
+      document.getElementById("reserve-error").textContent = result.error;
+      document.getElementById("reserve-error").classList.remove("hidden");
+    } else {
+      document.getElementById("reserve-modal").classList.add("hidden");
+      alert("Reservation confirmed! ID: " + result.reservation_id);
+    }
+  });
+
+// ── START ─────────────────────────────────────────────────────────────────────
+// This runs when the page loads. It checks if someone is already logged in
+// and loads the city list from the database.
 
 async function init() {
-  // check if already logged in from a previous session
-  const user = await API.me();
-  if (user) setUser(user);
+  currentUser = await getLoggedInUser();
+  updateNavForUser(currentUser);
   await loadCities();
 }
 
