@@ -12,7 +12,7 @@ const state = {
 };
 
 // ── API STUBS ─────────────────────────────────────────────────────────────────
-// Replace each stub with a real fetch() call to your Flask backend.
+// Replace each stub with a real fetch() call to Flask backend.
 // Example:  return await fetch('/api/cities').then(r => r.json());
 
 const API = {
