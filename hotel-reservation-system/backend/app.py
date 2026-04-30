@@ -4,177 +4,206 @@ import os
 
 app = Flask(__name__)
 
-# Path to frontend
+# figure out where the frontend folder is
 FRONTEND = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 FRONTEND = os.path.abspath(FRONTEND)
 
 
-# -------------------------
-# Serve frontend
-# -------------------------
+# serves the main html page
 @app.route('/')
 def index():
     return send_from_directory(FRONTEND, 'index.html')
 
 
+# serves js, css, etc
 @app.route('/<path:path>')
 def static_files(path):
     return send_from_directory(FRONTEND, path)
 
 
-# -------------------------
-# API ROUTES
-# -------------------------
-
-# 1. Get all cities
+# returns all cities from the database
 @app.route('/api/cities', methods=['GET'])
 def get_cities():
     conn = get_db()
-    cities = conn.execute("SELECT * FROM city").fetchall()
+    cities = conn.execute("select * from city").fetchall()
     return jsonify([dict(row) for row in cities])
 
 
-# 2. Get hotels in a city
+# returns all hotels for a given city
 @app.route('/api/cities/<int:city_id>/hotels', methods=['GET'])
 def get_hotels(city_id):
     conn = get_db()
     hotels = conn.execute(
-        "SELECT * FROM hotel WHERE city_id = ?",
+        "select * from hotel where city_id = ?",
         (city_id,)
     ).fetchall()
-
     return jsonify([dict(row) for row in hotels])
 
 
+# creates a new user account
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     data = request.get_json()
-    username = data.get('email')
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
 
     conn = get_db()
 
     try:
-        # check if exists
+        # make sure email isn't already taken
         existing = conn.execute(
-            "SELECT * FROM users WHERE username = ?",
-            (username,)
+            "select * from registered_user where email = ?",
+            (email,)
         ).fetchone()
 
         if existing:
-            return jsonify({"error": "User already exists"}), 400
+            return jsonify({"error": "Email already in use"}), 400
 
-        # insert into users
+        # add to users table first to get the user_id
         cursor = conn.execute(
-            "INSERT INTO users (username, user_type) VALUES (?, 'registered')",
+            "insert into users (username, user_type) values (?, 'registered')",
             (username,)
         )
-
         user_id = cursor.lastrowid
 
-        # insert into registered_user
+        # then add email + password to registered_user
         conn.execute(
-            """
-            INSERT INTO registered_user (user_id, email, password_hash)
-            VALUES (?, ?, ?)
-            """,
-            (user_id, username, "dummy_password")
+            "insert into registered_user (user_id, email, password_hash) values (?, ?, ?)",
+            (user_id, email, password)
         )
 
         conn.commit()
 
-        return jsonify({"message": "User created"}), 201
+        # send back the user info so the frontend can log them in
+        return jsonify({"user_id": user_id, "username": username, "user_type": "registered"}), 201
 
     except Exception as e:
-        conn.rollback() 
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
 
 
+# no session support, so this always returns not logged in
 @app.route('/api/auth/me', methods=['GET'])
 def get_current_user():
-    # For now, just return "not logged in"
     return jsonify({"user": None})
 
 
+# checks email + password and returns the user if correct
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
-
-    username = data.get('email')  # frontend sends "email"
+    email = data.get('email')
+    password = data.get('password')
 
     conn = get_db()
 
-    user = conn.execute(
-        "SELECT * FROM users WHERE username = ?",
-        (username,)
+    # look up by email, joining users and registered_user together
+    row = conn.execute(
+        """
+        select u.user_id, u.username, u.user_type
+        from users u
+        join registered_user ru on u.user_id = ru.user_id
+        where ru.email = ? and ru.password_hash = ?
+        """,
+        (email, password)
     ).fetchone()
 
-    if user:
-        return jsonify(dict(user))
+    if row:
+        return jsonify(dict(row))
     else:
-        return jsonify({"error": "Invalid user"}), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
 
+# nothing to clear since we don't have sessions, just return ok
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     return jsonify({"message": "Logged out"})
 
 
-# 4. Create reservation
+# books a hotel for a user
 @app.route('/api/reservations', methods=['POST'])
 def create_reservation():
     data = request.get_json()
 
-    print("Incoming data:", data)  # debug
-
-    user_id = data.get('user_id') or 1
+    user_id = data.get('user_id')
     hotel_id = data.get('hotel_id')
-
-    check_in = data.get('check_in_date') or "2026-05-01"
-    check_out = data.get('check_out_date') or "2026-05-05"
+    check_in = data.get('check_in_date')
+    check_out = data.get('check_out_date')
     guests = data.get('number_of_guests', 1)
 
     conn = get_db()
 
-    conn.execute(
+    # check if someone already booked this hotel for overlapping dates
+    # overlap means: existing check-in is before our check-out AND existing check-out is after our check-in
+    conflict = conn.execute(
         """
-        INSERT INTO reservation 
-        (check_in_date, check_out_date, number_of_guests, total_cost, reservation_status, user_id, hotel_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        select check_in_date, check_out_date
+        from reservation
+        where hotel_id = ?
+          and reservation_status != 'cancelled'
+          and check_in_date < ?
+          and check_out_date > ?
         """,
-        (check_in, check_out, 1, 100.0, 'pending', user_id, hotel_id)
+        (hotel_id, check_out, check_in)
+    ).fetchone()
+
+    if conflict:
+        return jsonify({
+            "error": f"Those dates overlap with an existing booking ({conflict['check_in_date']} to {conflict['check_out_date']}). Please choose different dates."
+        }), 409
+
+    # work out how much it costs total
+    hotel = conn.execute("select price_per_night from hotel where hotel_id = ?", (hotel_id,)).fetchone()
+    from datetime import date
+    nights = (date.fromisoformat(check_out) - date.fromisoformat(check_in)).days
+    total_cost = round(hotel['price_per_night'] * nights, 2)
+
+    cursor = conn.execute(
+        """
+        insert into reservation
+        (check_in_date, check_out_date, number_of_guests, total_cost, reservation_status, user_id, hotel_id)
+        values (?, ?, ?, ?, 'pending', ?, ?)
+        """,
+        (check_in, check_out, guests, total_cost, user_id, hotel_id)
     )
 
     conn.commit()
 
-    return jsonify({"message": "Reservation created"}), 201
+    return jsonify({"reservation_id": cursor.lastrowid, "total_cost": total_cost}), 201
 
 
-# 5. Get reservations for a user
+# marks a reservation as cancelled
+@app.route('/api/reservations/<int:reservation_id>/cancel', methods=['POST'])
+def cancel_reservation(reservation_id):
+    conn = get_db()
+    conn.execute(
+        "update reservation set reservation_status = 'cancelled' where reservation_id = ?",
+        (reservation_id,)
+    )
+    conn.commit()
+    return jsonify({"message": "Reservation cancelled"})
+
+
+# gets all reservations for a user, joined with hotel and city names
 @app.route('/api/users/<int:user_id>/reservations', methods=['GET'])
 def get_user_reservations(user_id):
     conn = get_db()
-
     reservations = conn.execute(
-    """
-    SELECT 
-        r.*, 
-        h.hotel_name as hotel_name, 
-        c.city_name as city_name
-    FROM reservation r
-    JOIN hotel h ON r.hotel_id = h.hotel_id
-    JOIN city c ON h.city_id = c.city_id
-    WHERE r.user_id = ?
-    """,
-    (user_id,)
+        """
+        select r.*, h.hotel_name, c.city_name
+        from reservation r
+        join hotel h on r.hotel_id = h.hotel_id
+        join city c on h.city_id = c.city_id
+        where r.user_id = ?
+        """,
+        (user_id,)
     ).fetchall()
-
     return jsonify([dict(row) for row in reservations])
 
 
-# -------------------------
-# Run server
-# -------------------------
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
