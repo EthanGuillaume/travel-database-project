@@ -667,6 +667,36 @@ select:disabled {
   line-height: 1.65;
 }
 
+/* ── MY RESERVATIONS LIST ────────────────────────────────────────────────── */
+.reservation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.reservation-row:last-child {
+  border-bottom: none;
+}
+.res-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.res-status-pending {
+  color: var(--coffee);
+}
+.res-status-confirmed {
+  color: #2d7a4f;
+}
+.res-status-cancelled {
+  color: var(--text-soft);
+  text-decoration: line-through;
+}
+
 /* ── FOOTER ─────────────────────────────────────────────────────────────── */
 .footer {
   background: var(--coffee-dark);

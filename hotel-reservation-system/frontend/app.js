@@ -279,18 +279,22 @@ els.citySelect.addEventListener("change", async () => {
   els.cityInfoCard.classList.remove("hidden");
   els.cityInfoName.textContent = `${city.city_name}, ${city.country}`;
   els.cityInfoDesc.textContent = city.description || "";
-  els.cityPriceBadge.textContent =
-    city.avg_hotel_price_low && city.avg_hotel_price_high
-      ? `Avg. $${city.avg_hotel_price_low} – $${city.avg_hotel_price_high} / night`
-      : "";
-
+  els.cityPriceBadge.textContent = "";
   els.initialPrompt.classList.add("hidden");
   els.hotelGrid.innerHTML =
     '<p style="color:var(--text-soft);padding:2rem 0">Loading hotels…</p>';
   els.resultsHeader.classList.add("hidden");
   els.emptyState.classList.add("hidden");
 
+  // fetch hotels, then compute the real price range from actual data
   state.currentHotels = await API.getHotelsByCity(cityId);
+  if (state.currentHotels.length > 0) {
+    const prices = state.currentHotels.map((h) => h.price_per_night);
+    const low = Math.min(...prices).toFixed(0);
+    const high = Math.max(...prices).toFixed(0);
+    els.cityPriceBadge.textContent = `Avg. $${low} – $${high} / night`;
+  }
+
   applyFilters();
 });
 
@@ -527,18 +531,84 @@ els.formReserve.addEventListener("submit", async (e) => {
     els.reserveError.textContent = result.error;
     els.reserveError.classList.remove("hidden");
   } else {
-    els.reserveModal.classList.add("hidden");
-    alert(`Reservation confirmed! ID: ${result.reservation_id}`);
-    // TODO: show a nicer confirmation UI instead of alert
+    // show a confirmation message inside the modal instead of a browser alert
+    els.formReserve.classList.add("hidden");
+    els.reserveSummary.classList.add("hidden");
+    const confirmMsg = document.createElement("p");
+    confirmMsg.style.cssText =
+      "color:var(--coffee-dark);font-weight:600;padding:1rem 0;text-align:center";
+    confirmMsg.textContent = `Booked! Your reservation (#${result.reservation_id}) is confirmed for $${result.total_cost}.`;
+    els.reserveModal.querySelector(".modal").appendChild(confirmMsg);
+    setTimeout(() => {
+      els.reserveModal.classList.add("hidden");
+      els.formReserve.classList.remove("hidden");
+      confirmMsg.remove();
+    }, 3000);
   }
+});
+
+// ── MY RESERVATIONS MODAL ────────────────────────────────────────────────────
+
+$("btn-my-reservations").addEventListener("click", async () => {
+  $("reservations-modal").classList.remove("hidden");
+  const list = $("reservations-list");
+  list.innerHTML = "<p>Loading...</p>";
+
+  const all = await fetch(
+    `/api/users/${state.currentUser.user_id}/reservations`,
+  ).then((r) => r.json());
+
+  // only show active (non-cancelled) reservations
+  const reservations = all.filter((r) => r.reservation_status !== "cancelled");
+
+  if (!reservations.length) {
+    list.innerHTML =
+      '<p style="color:var(--text-soft)">You have no active reservations.</p>';
+    return;
+  }
+
+  list.innerHTML = reservations
+    .map(
+      (r) => `
+    <div class="reservation-row">
+      <div>
+        <strong>${r.hotel_name}</strong> &mdash; ${r.city_name}<br>
+        ${r.check_in_date} &rarr; ${r.check_out_date} &nbsp; (${r.number_of_guests} guest${r.number_of_guests !== 1 ? "s" : ""})<br>
+        <span class="res-status res-status-${r.reservation_status}">${r.reservation_status}</span>
+      </div>
+      ${r.reservation_status !== "cancelled" ? `<button class="btn-ghost btn-cancel-res" data-id="${r.reservation_id}">Cancel</button>` : ""}
+    </div>
+  `,
+    )
+    .join("");
+
+  // wire up cancel buttons
+  list.querySelectorAll(".btn-cancel-res").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to cancel this reservation?")) return;
+      const id = btn.dataset.id;
+      await fetch(`/api/reservations/${id}/cancel`, { method: "POST" });
+      btn.closest(".reservation-row").remove();
+      if (!list.querySelector(".reservation-row")) {
+        list.innerHTML =
+          '<p style="color:var(--text-soft)">You have no active reservations.</p>';
+      }
+    });
+  });
+});
+
+$("reservations-modal-close").addEventListener("click", () =>
+  $("reservations-modal").classList.add("hidden"),
+);
+$("reservations-modal").addEventListener("click", (e) => {
+  if (e.target === $("reservations-modal"))
+    $("reservations-modal").classList.add("hidden");
 });
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
 async function init() {
-  // check if already logged in from a previous session
-  const user = await API.me();
-  if (user) setUser(user);
+  // no session persistence — user starts logged out on every page load
   await loadCities();
 }
 
