@@ -29,6 +29,9 @@
         <!-- shown when logged in -->
         <div id="nav-user-info" class="hidden">
           <span id="nav-username"></span>
+          <button class="btn-ghost" id="btn-my-reservations">
+            My Reservations
+          </button>
           <button class="btn-ghost" id="btn-logout">Sign Out</button>
         </div>
       </div>
@@ -270,6 +273,15 @@
             Confirm Reservation
           </button>
         </form>
+      </div>
+    </div>
+
+    <!-- ── MY RESERVATIONS MODAL ──────────────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="reservations-modal">
+      <div class="modal modal-wide">
+        <button class="modal-close" id="reservations-modal-close">✕</button>
+        <h2>My Reservations</h2>
+        <div id="reservations-list"><p>Loading...</p></div>
       </div>
     </div>
 
