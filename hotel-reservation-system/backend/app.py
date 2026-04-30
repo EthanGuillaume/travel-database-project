@@ -8,6 +8,8 @@ app = Flask(__name__)
 FRONTEND = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 FRONTEND = os.path.abspath(FRONTEND)
 
+#https://docs.python.org/3/library/sqlite3.html
+#documentation for SQLite which we are using for this project. Using it is a little janky with the commands but it helps us have an easy local db.
 
 # serves the main html page
 @app.route('/')
